@@ -117,29 +117,30 @@ else
 	exit 1
 endif
 
+# start gdb server and gdb for the M4 core
 debug: $(OUT)
 ifeq ($(PROGRAMMER),lpc-link2)
+	$(LPCXPRESSO_DIR)/bin/boot_link2 || true
 	$(GDB) --eval-command="target extended-remote | $(LPCXPRESSO_DIR)/bin/crt_emu_cm_redlink -g -mi -2 -p $(CPU)" $(OUT)
 else ifeq ($(PROGRAMMER),j-link)
-	JLinkGDBServer -device $(CPU_MODEL) -if SWD $(OUT) &
-	$(GDB) --eval-command="target remote :2331" $(OUT)
+	./jlink-gdb.sh "JLinkGDBServer -device $(CPU) -if SWD -speed 4000" "$(GDB) --eval-command='target remote :2331' $(OUT)"
 else
 	echo "Unsupported programmer"
 	exit 1
 endif
 
+# start gdb server and gdb for the M0 core
+debug_m0: $(OUT)
+ifeq ($(PROGRAMMER),lpc-link2)
+	$(GDB) --eval-command="target extended-remote | $(LPCXPRESSO_DIR)/bin/crt_emu_cm_redlink -g -mi -2 -p $(CPU)_M0" $(OUT)
+else ifeq ($(PROGRAMMER),j-link)
+	./jlink-gdb.sh "JLinkGDBServer -device $(CPU)_M0 -if SWD -speed 4000 -port 2334" "$(GDB) --eval-command='target remote :2334' $(OUT)"
+else
+	echo "Unsupported programmer"
+	exit 1
+endif
 
-
-# Pin 33 (PTB1) to FTDI RX (yellow)
-# Pin 34 (PTB0) to FTDI TX (orange)
-#flash: $(HEX)
-#	$(BLHOST) -n -d -V -p $(BLHOST_PORT) flash-erase-all-unsecure
-#	$(BLHOST) -n -d -V -p $(BLHOST_PORT) flash-image $(HEX) erase
-#	$(BLHOST) -n -d -V -p $(BLHOST_PORT) reset
-
-
-.PHONY: all checkdirs clean 
+.PHONY: all checkdirs clean flash debug debug_m0
 
 $(foreach bdir,$(BUILD_DIRS),$(eval $(call make-goal,$(bdir))))
-
 -include $(DEPS)
