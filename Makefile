@@ -25,6 +25,7 @@ vpath %.S $(SRC_DIRS)
 
 CC = arm-none-eabi-gcc
 OBJCOPY = arm-none-eabi-objcopy
+OBJDUMP = arm-none-eabi-objdump
 SIZE = arm-none-eabi-size
 GDB = arm-none-eabi-gdb
 
@@ -32,6 +33,7 @@ OUT = $(PROJECT_NAME).elf
 HEX = $(PROJECT_NAME).hex
 SIZ = $(PROJECT_NAME).siz
 MAP = $(PROJECT_NAME).map
+LST = $(PROJECT_NAME).lst
 
 #CFLAGS = -mcpu=cortex-m0plus -mthumb -Os -ggdb -fmessage-length=0 -fsigned-char -fno-common -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -mapcs -std=gnu99 -Wall -DCPU_$(CPU) -D__STARTUP_CLEAR_BSS
 CFLAGS = -DCPU_$(CPU) -D__STARTUP_CLEAR_BSS -Wall -fno-common -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -mthumb -mapcs -std=gnu99 -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 -MMD -MP
@@ -57,6 +59,7 @@ $(BUILD_DIRS):
 # Tool invocations
 $(OUT): $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(OUT) $(OBJ)
+	$(OBJDUMP) -z -D $(OUT) > $(LST)
 
 define make-goal
 $1/%.o: %.S
@@ -75,7 +78,7 @@ $(SIZ): $(OUT)
 
 # Other Targets
 clean:
-	rm -f $(OUT) $(HEX) $(SIZ) $(MAP)
+	rm -f $(OUT) $(HEX) $(SIZ) $(MAP) $(LST)
 	rm -rf build
 
 flash: $(OUT)

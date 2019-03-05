@@ -9,5 +9,6 @@
 *.hex
 *.siz
 *.map
+*.lst
 build/
 .DS_Store

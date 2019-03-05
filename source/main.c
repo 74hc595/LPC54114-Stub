@@ -6,12 +6,12 @@
 int main(void)
 {
   /* enable IOCON and GPIO clocks */
-  SYSCON->AHBCLKCTRLSET[0] = (1U << 13) | (1U << (14+(LED_PORT)));
+  SYSCON->AHBCLKCTRLSET[0] = SYSCON_AHBCLKCTRL_IOCON_MASK | SYSCON_AHBCLKCTRL_GPIO0_MASK | SYSCON_AHBCLKCTRL_GPIO1_MASK;
   /* configure pin for GPIO */
   IOCON->PIO[LED_PORT][LED_PIN] =
-    (0U << 0) | /* configured as GPIO */
-    (2U << 3) | /* pullup enabled */
-    (1U << 7);  /* digital mode */
+    IOCON_PIO_FUNC(0) | /* configured as GPIO */
+    IOCON_PIO_MODE(2) | /* pullup enabled */
+    IOCON_PIO_DIGIMODE_MASK; /* digital mode */
   /* set GPIO pin as an output */
   GPIO->DIRSET[LED_PORT] = (1U << LED_PIN);
 
