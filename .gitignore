@@ -1,0 +1,13 @@
+*.o
+*.d
+*.elf
+*.hex
+*.map
+*.swp
+*.gch
+*.elf
+*.hex
+*.siz
+*.map
+build/
+.DS_Store

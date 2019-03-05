@@ -1,0 +1,16 @@
+{
+  "configurations": [
+      {
+          "name": "Mac",
+          "includePath": [
+              "${workspaceFolder}/**"
+          ],
+          "defines": ["__STARTUP_CLEAR_BSS", "DEBUG", "CPU_LPC54114J256BD64_cm4"],
+          "compilerPath": "/usr/bin/clang",
+          "cStandard": "c11",
+          "cppStandard": "c++17",
+          "intelliSenseMode": "clang-x64"
+      }
+  ],
+  "version": 4
+}
