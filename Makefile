@@ -1,4 +1,4 @@
-# Stub Makefile for LPC54114, Cortex-M4 core only
+# Stub Makefile for LPC54114, Cortex-M4 and Cortex-M0+ dual-core
 
 #PROGRAMMER ?= lpc-link2
 PROGRAMMER ?= j-link
@@ -12,23 +12,23 @@ CPU_MODEL = $(CPU)BD64
 DEBUG ?= 1
 
 SRC_DIRS = board drivers source startup
+M0_SRC_DIRS = m0
 BUILD_DIRS = $(addprefix build/,$(SRC_DIRS))
-INCLUDE_DIRS = CMSIS $(SRC_DIRS)
+M0_BUILD_DIRS = $(addprefix build/,$(M0_SRC_DIRS))
+INCLUDE_DIRS = CMSIS $(SRC_DIRS) $(M0_SRC_DIRS)
 
 SRC = $(foreach sdir,$(SRC_DIRS),$(wildcard $(sdir)/*.c))
 ASM = $(foreach sdir,$(SRC_DIRS),$(wildcard $(sdir)/*.S))
-OBJ = $(filter-out %.m0.o, $(patsubst %.c,build/%.o,$(SRC)) $(patsubst %.S,build/%.o,$(ASM)))
+OBJ = $(patsubst %.c,build/%.o,$(SRC)) $(patsubst %.S,build/%.o,$(ASM))
 
-M0_SRC = $(foreach sdir,$(SRC_DIRS),$(wildcard $(sdir)/*.m0.c))
-M0_ASM = $(foreach sdir,$(SRC_DIRS),$(wildcard $(sdir)/*.m0.S))
-M0_IMG = $(patsubst %.m0.c,build/%.m0.img.o,$(M0_SRC)) $(patsubst %.m0.S,build/%.m0.img.o,$(M0_ASM))
-# M0_BIN = $(patsubst %.m0.c,build/%.m0.bin,$(M0_SRC)) $(patsubst %.m0.S,build/%.m0.bin,$(M0_ASM))
-# M0_BIN_OBJ = $(patsubst %.m0.c,build/%.m0,$(M0_SRC)) $(patsubst %.m0.S,build/%.m0,$(M0_ASM))
+M0_SRC = $(foreach sdir,$(M0_SRC_DIRS),$(wildcard $(sdir)/*.c))
+M0_ASM = $(foreach sdir,$(M0_SRC_DIRS),$(wildcard $(sdir)/*.S))
+M0_OBJ = $(patsubst %.c,build/%.o,$(M0_SRC)) $(patsubst %.S,build/%.o,$(M0_ASM))
 
-DEPS = $(M0_OBJ:.m0.o=.d) $(OBJ:.o=.d)
+DEPS = $(OBJ:.o=.d) $(M0_OBJ:.o=.d)
 
-vpath %.c $(SRC_DIRS)
-vpath %.S $(SRC_DIRS)
+vpath %.c $(SRC_DIRS) $(M0_SRC_DIRS)
+vpath %.S $(SRC_DIRS) $(M0_SRC_DIRS)
 
 CC = arm-none-eabi-gcc
 LD = arm-none-eabi-ld
@@ -43,7 +43,6 @@ SIZ = $(PROJECT_NAME).siz
 MAP = $(PROJECT_NAME).map
 LST = $(PROJECT_NAME).lst
 
-#CFLAGS = -mcpu=cortex-m0plus -mthumb -Os -ggdb -fmessage-length=0 -fsigned-char -fno-common -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -mapcs -std=gnu99 -Wall -DCPU_$(CPU) -D__STARTUP_CLEAR_BSS
 CFLAGS = -D__STARTUP_CLEAR_BSS -Wall -fno-common -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -mthumb -mapcs -std=gnu99 -MMD -MP
 LDFLAGS = -T $(LINKER_SCRIPT) -Xlinker -gc-sections -Xlinker -static -Xlinker -z -Xlinker muldefs -Wl,-Map,"$(MAP)" --specs=nano.specs -specs=nosys.specs
 
@@ -61,33 +60,38 @@ M0_CFLAGS = $(CFLAGS) -DCPU_$(CPU_MODEL)_cm0plus -mcpu=cortex-m0plus -nostartfil
 
 all: checkdirs $(OUT) $(HEX) $(SIZ)
 
-checkdirs: $(BUILD_DIRS)
+checkdirs: $(BUILD_DIRS) $(M0_BUILD_DIRS)
 
 $(BUILD_DIRS):
 	mkdir -p $@
 
-# Tool invocations
-$(OUT): $(OBJ) $(M0_IMG)
-	$(CC) $(M4_CFLAGS) $(LDFLAGS) -o $(OUT) $(OBJ) $(M0_IMG)
+$(M0_BUILD_DIRS):
+	mkdir -p $@
+
+$(OUT): $(OBJ) $(M0_OBJ)
+	$(CC) $(M4_CFLAGS) $(LDFLAGS) -o $(OUT) $(OBJ) $(M0_OBJ)
 	$(OBJDUMP) -z -D $(OUT) > $(LST)
 
 define make-goal
-
-$1/%.m0.o: %.m0.S
-	$(CC) $(M0_CFLAGS) -x assembler-with-cpp -c $$< -o $$@
-
-$1/%.m0.o: %.m0.c
-	$(CC) $(M0_CFLAGS) -c $$< -o $$@.tmp
-
-$1/%.m0.img.o: %.m0.o
-	$(OBJCOPY) -O binary $$< $$<.bin
-	$(LD) -r -b binary $$<.bin -o $$@
-
 $1/%.o: %.S
 	$(CC) $(M4_CFLAGS) -x assembler-with-cpp -c $$< -o $$@
 
 $1/%.o: %.c
 	$(CC) $(M4_CFLAGS) -c $$< -o $$@
+endef
+
+define make-goal-m0
+$1/%.o: %.S
+	$(CC) $(M0_CFLAGS) -x assembler-with-cpp -c $$< -o $$@_tmp
+	$(OBJCOPY) -O binary $$@_tmp $$@_bin
+	$(LD) -r -b binary $$@_bin -o $$@
+	$(OBJCOPY) --rename-section .data=.text $$@ $$@
+
+$1/%.o: %.c
+	$(CC) $(M0_CFLAGS) -c $$< -o $$@_tmp
+	$(OBJCOPY) -O binary $$@_tmp $$@_bin
+	$(LD) -r -b binary $$@_bin -o $$@
+	$(OBJCOPY) --rename-section .data=.text $$@ $$@
 
 endef
 
@@ -97,7 +101,6 @@ $(HEX): $(OUT)
 $(SIZ): $(OUT)
 	$(SIZE) --format=berkeley $(OUT)
 
-# Other Targets
 clean:
 	rm -f $(OUT) $(HEX) $(SIZ) $(MAP) $(LST)
 	rm -rf build
@@ -112,6 +115,7 @@ else ifeq ($(PROGRAMMER),j-link)
 	echo "r" >> jlinkscript
 	echo "q" >> jlinkscript
 	JLinkExe -device $(CPU_MODEL) -if SWD -speed 4000 -autoconnect 1 -commanderscript jlinkscript
+	rm jlinkscript
 else
 	echo "Unsupported programmer"
 	exit 1
@@ -132,7 +136,8 @@ endif
 # start gdb server and gdb for the M0 core
 debug_m0: $(OUT)
 ifeq ($(PROGRAMMER),lpc-link2)
-	$(GDB) --eval-command="target extended-remote | $(LPCXPRESSO_DIR)/bin/crt_emu_cm_redlink -g -mi -2 -p $(CPU)_M0" $(OUT)
+	echo "TODO: lpc-link2 M0 debug"
+	exit 1
 else ifeq ($(PROGRAMMER),j-link)
 	./jlink-gdb.sh "JLinkGDBServer -device $(CPU)_M0 -if SWD -speed 4000 -port 2334" "$(GDB) --eval-command='target remote :2334' $(OUT)"
 else
@@ -140,7 +145,9 @@ else
 	exit 1
 endif
 
-.PHONY: all checkdirs clean flash debug debug_m0
+.PHONY: all checkdirs clean debug debug_m0 flash
 
+$(foreach bdir,$(M0_BUILD_DIRS),$(eval $(call make-goal-m0,$(bdir))))
 $(foreach bdir,$(BUILD_DIRS),$(eval $(call make-goal,$(bdir))))
+
 -include $(DEPS)

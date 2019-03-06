@@ -6,5 +6,7 @@
 # Usage:
 #  ./jlink-gdb.sh "JLinkGDBServer-command-line" "gdb-command-line"
 
+trap "kill %1" EXIT
+
 eval "$1 >/dev/null &"
 eval "$2"
