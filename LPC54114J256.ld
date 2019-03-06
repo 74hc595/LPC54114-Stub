@@ -41,7 +41,7 @@ SECTIONS
     . = ALIGN(4);
     __data_end__ = .;
   } > RAM
-  __edata = LOADADDR(.xdata)+SIZEOF(.data);
+  __edata = LOADADDR(.data)+SIZEOF(.data);
 
   .noinit (NOLOAD) : {
     *(.noinit*)

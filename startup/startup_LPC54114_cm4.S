@@ -90,32 +90,40 @@ __vectors:
     .weak   Reset_Handler
     .type   Reset_Handler, %function
 Reset_Handler:
+    adr     r4, init_fns
     @ copy data from ROM to SRAM
-    ldr     r1, =__etext
-    ldr     r2, =__data_start__
-    ldr     r3, =__data_end__
-    ldr     r0, =copy_data
+    ldmia   r4!, {r0, r1, r2, r3}
     blx     r0
-    ldr     r1, =__bss_start__
-    ldr     r2, =__bss_end__
-    ldr     r0, =clear_bss
+    @ clear SRAM bss
+    ldmia   r4!, {r0, r1, r2}
     blx     r0
     @ copy data from ROM to SRAMX
-    ldr     r1, =__edata
-    ldr     r2, =__xdata_start__
-    ldr     r3, =__xdata_end__
-    ldr     r0, =copy_data
+    ldmia   r4!, {r0, r1, r2, r3}
     blx     r0
-    ldr     r1, =__xbss_start__
-    ldr     r2, =__xbss_end__
-    ldr     r0, =clear_bss
-    blx     r0
+    @ clear SRAM bss
+    ldmia   r4!, {r0, r1, r2}
     @ start C code
+    blx     r0
     ldr     r0, =__libc_init_array
     blx     r0
     ldr     r0, =main
     bx      r0
     .pool
+init_fns:
+    .long   copy_data
+    .long   __etext
+    .long   __data_start__
+    .long   __data_end__
+    .long   clear_bss
+    .long   __bss_start__
+    .long   __bss_end__
+    .long   copy_data
+    .long   __edata
+    .long   __xdata_start__
+    .long   __xdata_end__
+    .long   clear_bss
+    .long   __xbss_start__
+    .long   __xbss_end__
 
     .thumb_func
 copy_data:
