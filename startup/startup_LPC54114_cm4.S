@@ -17,11 +17,11 @@
     .syntax unified
     .arch armv7-m
 
-    .section .isr_vector, "a"
+    .section .vectors, "a"
     .align 2
-    .globl __Vectors
-__Vectors:
-    .long   __StackTop                                      /* Top of Stack */
+    .globl __vectors
+__vectors:
+    .long   __estack                                        /* Top of Stack */
     .long   Reset_Handler                                   /* Reset Handler */
     .long   NMI_Handler                                     /* NMI Handler*/
     .long   HardFault_Handler                               /* Hard Fault Handler*/
@@ -37,7 +37,6 @@ __Vectors:
     .long   0                                               /* Reserved*/
     .long   PendSV_Handler                                  /* PendSV Handler*/
     .long   SysTick_Handler                                 /* SysTick Handler*/
-
                                                             /* External Interrupts*/
     .long   WDT_BOD_IRQHandler                              /* Watchdog Timer, Brownout detect */
     .long   DMA0_IRQHandler                                 /* DMA controller interrupt */
@@ -79,169 +78,204 @@ __Vectors:
     .long   CTIMER4_IRQHandler                              /* Standard counter/timer CTIMER4 */
     .long   0                                               /* Reserved interrupt */
     .long   SPIFI0_IRQHandler                               /* SPI flash interface */
-    .size    __Vectors, . - __Vectors
+    .size    __vectors, . - __vectors
 
 
-    
+
     .text
     .thumb
-#ifndef  SLAVEBOOT
-rel_vals:
-    .long   0xE000ED00   /* cpu_id */
-    .long   0x40000800   /* cpu_ctrl */
-    .long   0x40000804   /* coproc_boot */
-    .long   0x40000808   /* coproc_stack */
-    .short  0x0FFF       
-    .short  0x0C24
-#endif
-/* Reset Handler */
-
     .thumb_func
     .align 2
-    .globl   Reset_Handler
-    .weak    Reset_Handler
-    .type    Reset_Handler, %function
-
+    .global Reset_Handler
+    .weak   Reset_Handler
+    .type   Reset_Handler, %function
 Reset_Handler:
-#ifndef  SLAVEBOOT
-/* Both the M0+ and M4 core come via this shared startup code,
- * but the M0+ and M4 core have different vector tables.
- * Determine if the core executing this code is the master or
- * the slave and handle each core state individually. */
+    @ copy data from ROM to SRAM
+    ldr     r1, =__etext
+    ldr     r2, =__data_start__
+    ldr     r3, =__data_end__
+    ldr     r0, =copy_data
+    blx     r0
+    ldr     r1, =__bss_start__
+    ldr     r2, =__bss_end__
+    ldr     r0, =clear_bss
+    blx     r0
+    @ copy data from ROM to SRAMX
+    ldr     r1, =__edata
+    ldr     r2, =__xdata_start__
+    ldr     r3, =__xdata_end__
+    ldr     r0, =copy_data
+    blx     r0
+    ldr     r1, =__xbss_start__
+    ldr     r2, =__xbss_end__
+    ldr     r0, =clear_bss
+    blx     r0
+    @ start C code
+    ldr     r0, =__libc_init_array
+    blx     r0
+    ldr     r0, =main
+    bx      r0
+    .pool
 
-shared_boot_entry:
-    ldr     r6, =rel_vals
-                
-    /* Flag for slave core (0) */                
-    movs    r4, 0
-    movs    r5, 1
-
-    /* Determine which core (M0+ or M4) this code is running on */
-    /* r2 = (((*cpu_id) >> 4) & 0xFFF); (M4 core == 0xC24) */
-get_current_core_id:
-    ldr     r0, [r6, #0]
-    ldr     r1, [r0]                        /* r1 = CPU ID status */
-    lsrs    r1, r1, #4                      /* Right justify 12 CPU ID bits */
-    ldrh    r2, [r6, #16]                   /* Mask for CPU ID bits */
-    ands    r2, r1, r2                      /* r2 = ARM COrtex CPU ID */
-    ldrh    r3, [r6, #18]                   /* Mask for CPU ID bits */
-    cmp     r3, r2                          /* Core ID matches M4 identifier */
-    bne     get_master_status
-    mov     r4, r5                          /* Set flag for master core (1) */
-
-    /* Determine if M4 core is the master or slave */
-    /* r3 = ((*cpu_ctrl) & 1); (0 == m0+, 1 == M4) */
-get_master_status:
-    ldr     r0, [r6, #4]
-    ldr     r3, [r0]                        /* r3 = SYSCON co-processor CPU control status */
-
-    ands    r3, r3, r5                      /* r3 = (Bit 0: 1 = M4 is master, 0 = M4 is slave) */
-
-    /* Select boot based on selected master core and core ID */
-
-select_boot:
-    eors    r3, r3, r4                      /* r4 = (Bit 0: 0 = master, 1 = slave) */
-
-    bne     slave_boot
-    b       normal_boot
-
-    /* Slave boot */
-slave_boot:
-    ldr     r0, [r6, #8]
-    ldr     r2, [r0]                        /* r1 = SYSCON co-processor boot address */
-
-    cmp     r2, #0                          /* Slave boot address = 0 (not set up)? */
-
-    beq     cpu_sleep
-    ldr     r0, [r6, #12]
-    ldr     r1, [r0]                        /* r5 = SYSCON co-processor stack address */
-
-    mov     sp, r1                          /* Update slave CPU stack pointer */
-
-    /* Be sure to update VTOR for the slave MCU to point to the */
-    /* slave vector table in boot memory */
-    bx      r2                              /* Jump to slave boot address */
-
-    /* Slave isn't yet setup for system boot from the master */
-    /* so sleep until the master sets it up and then reboots it */
-cpu_sleep:
-    mov     sp, r5                          /* Will force exception if something happens */
-cpu_sleep_wfi:
-    wfi                                     /* Sleep forever until master reboots */
-    b       cpu_sleep_wfi
-#endif /* defined(SLAVEBOOT) */
-
-#ifndef __START
-#define __START _start
-#endif
-#ifndef __ATOLLIC__
-normal_boot:
-#ifndef __NO_SYSTEM_INIT
-    ldr   r0,=SystemInit
-    blx   r0
-#endif
-    /*      Loop to copy data from read only memory to RAM. The ranges
-     *      of copy from/to are specified by following symbols evaluated in
-     *      linker script.
-     *      __etext: End of code section, i.e., begin of data sections to copy from.
-     *      __data_start__/__data_end__: RAM address range that data should be
-     *      copied to. Both must be aligned to 4 bytes boundary.  */
-
-    ldr    r1, =__etext
-    ldr    r2, =__data_start__
-    ldr    r3, =__data_end__
-
-#if 1
-/* Here are two copies of loop implemenations. First one favors code size
- * and the second one favors performance. Default uses the first one.
- * Change to "#if 0" to use the second one */
-.LC0:
-    cmp     r2, r3
+    .thumb_func
+copy_data:
+1:  cmp     r2, r3
     ittt    lt
     ldrlt   r0, [r1], #4
     strlt   r0, [r2], #4
-    blt    .LC0
-#else
-    subs    r3, r2
-    ble    .LC1
-.LC0:
-    subs    r3, #4
-    ldr    r0, [r1, r3]
-    str    r0, [r2, r3]
-    bgt    .LC0
-.LC1:
-#endif
+    blt     1b
+    bx      lr
 
-#ifdef __STARTUP_CLEAR_BSS
-/*     This part of work usually is done in C library startup code. Otherwise,
- *     define this macro to enable it in this startup.
- *
- *     Loop to zero out BSS section, which uses following symbols
- *     in linker script:
- *      __bss_start__: start of BSS section. Must align to 4
- *      __bss_end__: end of BSS section. Must align to 4
- */
-    ldr r1, =__bss_start__
-    ldr r2, =__bss_end__
-
+    .thumb_func
+clear_bss:
+#if __STARTUP_CLEAR_BSS
     movs    r0, 0
-.LC2:
-    cmp     r1, r2
-    itt    lt
+1:  cmp     r1, r2
+    itt     lt
     strlt   r0, [r1], #4
-    blt    .LC2
-#endif /* __STARTUP_CLEAR_BSS */
-    ldr   r0,=__START
-    blx   r0
-#else
-    ldr   r0,=__libc_init_array
-    blx   r0
-    ldr   r0,=main
-    bx    r0
+    blt     1b
 #endif
-    
+    bx      lr
+
     .pool
     .size Reset_Handler, . - Reset_Handler
+
+@ #ifndef  SLAVEBOOT
+@ /* Both the M0+ and M4 core come via this shared startup code,
+@  * but the M0+ and M4 core have different vector tables.
+@  * Determine if the core executing this code is the master or
+@  * the slave and handle each core state individually. */
+
+@ shared_boot_entry:
+@     ldr     r6, =rel_vals
+                
+@     /* Flag for slave core (0) */                
+@     movs    r4, 0
+@     movs    r5, 1
+
+@     /* Determine which core (M0+ or M4) this code is running on */
+@     /* r2 = (((*cpu_id) >> 4) & 0xFFF); (M4 core == 0xC24) */
+@ get_current_core_id:
+@     ldr     r0, [r6, #0]
+@     ldr     r1, [r0]                        /* r1 = CPU ID status */
+@     lsrs    r1, r1, #4                      /* Right justify 12 CPU ID bits */
+@     ldrh    r2, [r6, #16]                   /* Mask for CPU ID bits */
+@     ands    r2, r1, r2                      /* r2 = ARM COrtex CPU ID */
+@     ldrh    r3, [r6, #18]                   /* Mask for CPU ID bits */
+@     cmp     r3, r2                          /* Core ID matches M4 identifier */
+@     bne     get_master_status
+@     mov     r4, r5                          /* Set flag for master core (1) */
+
+@     /* Determine if M4 core is the master or slave */
+@     /* r3 = ((*cpu_ctrl) & 1); (0 == m0+, 1 == M4) */
+@ get_master_status:
+@     ldr     r0, [r6, #4]
+@     ldr     r3, [r0]                        /* r3 = SYSCON co-processor CPU control status */
+
+@     ands    r3, r3, r5                      /* r3 = (Bit 0: 1 = M4 is master, 0 = M4 is slave) */
+
+@     /* Select boot based on selected master core and core ID */
+
+@ select_boot:
+@     eors    r3, r3, r4                      /* r4 = (Bit 0: 0 = master, 1 = slave) */
+
+@     bne     slave_boot
+@     b       normal_boot
+
+@     /* Slave boot */
+@ slave_boot:
+@     ldr     r0, [r6, #8]
+@     ldr     r2, [r0]                        /* r1 = SYSCON co-processor boot address */
+
+@     cmp     r2, #0                          /* Slave boot address = 0 (not set up)? */
+
+@     beq     cpu_sleep
+@     ldr     r0, [r6, #12]
+@     ldr     r1, [r0]                        /* r5 = SYSCON co-processor stack address */
+
+@     mov     sp, r1                          /* Update slave CPU stack pointer */
+
+@     /* Be sure to update VTOR for the slave MCU to point to the */
+@     /* slave vector table in boot memory */
+@     bx      r2                              /* Jump to slave boot address */
+
+@     /* Slave isn't yet setup for system boot from the master */
+@     /* so sleep until the master sets it up and then reboots it */
+@ cpu_sleep:
+@     mov     sp, r5                          /* Will force exception if something happens */
+@ cpu_sleep_wfi:
+@     wfi                                     /* Sleep forever until master reboots */
+@     b       cpu_sleep_wfi
+@ #endif /* defined(SLAVEBOOT) */
+
+@ #ifndef __START
+@ #define __START _start
+@ #endif
+@ #ifndef __ATOLLIC__
+@ normal_boot:
+@ #ifndef __NO_SYSTEM_INIT
+@     ldr   r0,=SystemInit
+@     blx   r0
+@ #endif
+@     /*      Loop to copy data from read only memory to RAM. The ranges
+@      *      of copy from/to are specified by following symbols evaluated in
+@      *      linker script.
+@      *      __etext: End of code section, i.e., begin of data sections to copy from.
+@      *      __data_start__/__data_end__: RAM address range that data should be
+@      *      copied to. Both must be aligned to 4 bytes boundary.  */
+
+@     ldr    r1, =__etext
+@     ldr    r2, =__data_start__
+@     ldr    r3, =__data_end__
+
+@ #if 1
+@ /* Here are two copies of loop implemenations. First one favors code size
+@  * and the second one favors performance. Default uses the first one.
+@  * Change to "#if 0" to use the second one */
+@ .LC0:
+@     cmp     r2, r3
+@     ittt    lt
+@     ldrlt   r0, [r1], #4
+@     strlt   r0, [r2], #4
+@     blt    .LC0
+@ #else
+@     subs    r3, r2
+@     ble    .LC1
+@ .LC0:
+@     subs    r3, #4
+@     ldr    r0, [r1, r3]
+@     str    r0, [r2, r3]
+@     bgt    .LC0
+@ .LC1:
+@ #endif
+
+@ #ifdef __STARTUP_CLEAR_BSS
+@ /*     This part of work usually is done in C library startup code. Otherwise,
+@  *     define this macro to enable it in this startup.
+@  *
+@  *     Loop to zero out BSS section, which uses following symbols
+@  *     in linker script:
+@  *      __bss_start__: start of BSS section. Must align to 4
+@  *      __bss_end__: end of BSS section. Must align to 4
+@  */
+@     ldr r1, =__bss_start__
+@     ldr r2, =__bss_end__
+
+@     movs    r0, 0
+@ .LC2:
+@     cmp     r1, r2
+@     itt    lt
+@     strlt   r0, [r1], #4
+@     blt    .LC2
+@ #endif /* __STARTUP_CLEAR_BSS */
+@     ldr   r0,=__START
+@     blx   r0
+@ #else
+@     ldr   r0,=__libc_init_array
+@     blx   r0
+@     ldr   r0,=main
+@     bx    r0
+@ #endif
 
     .align  1
     .thumb_func
