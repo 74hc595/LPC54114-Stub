@@ -15,7 +15,6 @@
 /* Version: GCC for ARM Embedded Processors                                  */
 /*****************************************************************************/
     .syntax unified
-    .arch armv7-m
 
     .section .vectors, "a"
     .align 2
@@ -81,7 +80,6 @@ __vectors:
     .size    __vectors, . - __vectors
 
 
-
     .text
     .thumb
     .thumb_func
@@ -89,7 +87,33 @@ __vectors:
     .global Reset_Handler
     .weak   Reset_Handler
     .type   Reset_Handler, %function
+@ This is the entry point for both M4 and M0+ code.
+@ The M0+ does NOT automatically start at the address in SYSCON->CPBOOT when
+@ booted by the master.
+@ Instead, the reset handler needs to read the CPU ID and run the appropriate
+@ startup code for the current core.
 Reset_Handler:
+    .arch armv6-m
+    ldr     r0, =0xE000ED00 @ read CPUID register in System Control Block
+    ldr     r0, [r0]
+    ldr     r1, =0x410cc601 @ CPUID for Cortex-M0+
+    cmp     r0, r1
+    bne     m4_boot
+
+m0_boot:
+    ldr     r0, =0x40000804 @ coprocessor boot register
+    ldr     r1, [r0]
+    cmp     r1, #0          @ sleep if boot address is not set
+    beq     m0_sleep
+    ldr     r0, [r0, #4]    @ coprocessor stack pointer
+    mov     sp, r0
+    bx      r1              @ jump to coprocessor code
+m0_sleep:
+    wfi
+    b       m0_sleep
+
+m4_boot:
+    .arch armv7-m
     adr     r4, init_fns
     @ copy data from ROM to SRAM
     ldmia   r4!, {r0, r1, r2, r3}
@@ -147,6 +171,8 @@ clear_bss:
 
     .pool
     .size Reset_Handler, . - Reset_Handler
+
+    .arch armv7-m
 
 @ #ifndef  SLAVEBOOT
 @ /* Both the M0+ and M4 core come via this shared startup code,
