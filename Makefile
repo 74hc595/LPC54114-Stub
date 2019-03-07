@@ -6,17 +6,16 @@ PROGRAMMER ?= j-link
 LPCXPRESSO_DIR = /Applications/lpcxpresso_8.2.2_650/lpcxpresso
 
 PROJECT_NAME = lpc54114-stub
-#LINKER_SCRIPT = LPC54114J256_cm4_flash.ld
 LINKER_SCRIPT = LPC54114J256.ld
 CPU = LPC54114J256
 CPU_MODEL = $(CPU)BD64
 DEBUG ?= 1
 
-SRC_DIRS = board drivers source startup
+SRC_DIRS = source startup
 M0_SRC_DIRS = m0
 BUILD_DIRS = $(addprefix build/,$(SRC_DIRS))
 M0_BUILD_DIRS = $(addprefix build/,$(M0_SRC_DIRS))
-INCLUDE_DIRS = CMSIS $(SRC_DIRS) $(M0_SRC_DIRS)
+INCLUDE_DIRS = include include/CMSIS $(SRC_DIRS) $(M0_SRC_DIRS)
 
 SRC = $(foreach sdir,$(SRC_DIRS),$(wildcard $(sdir)/*.c))
 ASM = $(foreach sdir,$(SRC_DIRS),$(wildcard $(sdir)/*.S))
