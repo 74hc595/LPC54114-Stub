@@ -96,7 +96,10 @@ m0_sleep:
 
 m4_boot:
     .arch armv7-m
-    adr     r4, init_fns
+    adr     r4, m4_boot_constants
+    @ enable clocks for all SRAM
+    ldmia   r4!, {r0, r1}
+    str     r1, [r0]
     @ copy data from ROM to SRAM
     ldmia   r4!, {r0, r1, r2, r3}
     blx     r0
@@ -115,7 +118,9 @@ m4_boot:
     ldr     r0, =main
     bx      r0
     .pool
-init_fns:
+m4_boot_constants:
+    .long   0x40000220  @ SYSCON->AHBCLKCTRL0SET
+    .long   0x18        @ enable SRAM1 and SRAM2
     .long   copy_data
     .long   __etext
     .long   __data_start__
