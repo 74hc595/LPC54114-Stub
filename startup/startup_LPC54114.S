@@ -96,23 +96,17 @@ m0_sleep:
 
 m4_boot:
     .arch armv7-m
-    adr     r4, m4_boot_constants
+    adr     r7, m4_boot_constants
     @ enable clocks for all SRAM
-    ldmia   r4!, {r0, r1}
+    ldmia   r7!, {r0, r1}
     str     r1, [r0]
-    @ copy data from ROM to SRAM
-    ldmia   r4!, {r0, r1, r2, r3}
-    blx     r0
-    @ clear SRAM bss
-    ldmia   r4!, {r0, r1, r2}
-    blx     r0
-    @ copy data from ROM to SRAMX
-    ldmia   r4!, {r0, r1, r2, r3}
-    blx     r0
-    @ clear SRAM bss
-    ldmia   r4!, {r0, r1, r2}
+    @ copy data from ROM to SRAM and initialize bss
+    ldmia   r7!, {r0, r1, r2, r3, r4, r5}
+    blx     r5
+    @ copy data from ROM to SRAMX and initialize xbss
+    ldmia   r7!, {r0, r1, r2, r3, r4}
+    blx     r5
     @ start C code
-    blx     r0
     ldr     r0, =__libc_init_array
     blx     r0
     ldr     r0, =main
@@ -121,37 +115,35 @@ m4_boot:
 m4_boot_constants:
     .long   0x40000220  @ SYSCON->AHBCLKCTRL0SET
     .long   0x18        @ enable SRAM1 and SRAM2
-    .long   copy_data
     .long   __etext
     .long   __data_start__
     .long   __data_end__
-    .long   clear_bss
     .long   __bss_start__
     .long   __bss_end__
-    .long   copy_data
+    .long   copy_data_and_clear_bss
     .long   __edata
     .long   __xdata_start__
     .long   __xdata_end__
-    .long   clear_bss
     .long   __xbss_start__
     .long   __xbss_end__
 
     .thumb_func
-copy_data:
-1:  cmp     r2, r3
-    ittt    lt
-    ldrlt   r0, [r1], #4
-    strlt   r0, [r2], #4
-    blt     1b
-    bx      lr
-
-    .thumb_func
-clear_bss:
-    movs    r0, 0
+@ r0: data source address
+@ r1: data destination start address
+@ r2: data destination end address
+@ r3: bss start address
+@ r4: bss end address
+copy_data_and_clear_bss:
 1:  cmp     r1, r2
-    itt     lt
-    strlt   r0, [r1], #4
+    ittt    lt
+    ldrlt   r6, [r0], #4
+    strlt   r6, [r1], #4
     blt     1b
+    movs    r6, 0
+2:  cmp     r3, r4
+    itt     lt
+    strlt   r6, [r3], #4
+    blt     2b
     bx      lr
 
 .pool

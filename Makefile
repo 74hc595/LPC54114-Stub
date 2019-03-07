@@ -106,7 +106,7 @@ $1/%.bin: $1/%.m0
 # ld puts the result in the .data section
 $1/%.o: $1/%.bin
 	$(LD) -r -b binary $$< -o $$@
-	$(OBJCOPY) --rename-section .data=.text,alloc,readonly,code $$@ $$@
+	$(OBJCOPY) --rename-section .data=.text $$@ $$@
 endef
 
 
