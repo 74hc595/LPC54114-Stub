@@ -136,20 +136,31 @@ else
 	exit 1
 endif
 
-# start gdb server and gdb for the M4 core
+# start gdbserver for the M4 core
+debugserver:
+ifeq ($(PROGRAMMER),j-link)
+	JLinkGDBServer -device $(CPU) -if SWD -speed 4000 -port 2331
+endif
+
+# start gdbserver for the M0+ core
+debugserver_m0:
+ifeq ($(PROGRAMMER),j-link)
+	JLinkGDBServer -device $(CPU)_m0 -if SWD -speed 4000 -port 2334
+endif
+
+# debug the M4 core (gdb server must already be started)
 debug: $(OUT)
 ifeq ($(PROGRAMMER),lpc-link2)
 	$(LPCXPRESSO_DIR)/bin/boot_link2 || true
 	$(GDB) --eval-command="target extended-remote | $(LPCXPRESSO_DIR)/bin/crt_emu_cm_redlink -g -mi -2 -p $(CPU)" $(OUT)
 else ifeq ($(PROGRAMMER),j-link)
-	# ./jlink-gdb.sh "JLinkGDBServer -device $(CPU) -if SWD -speed 4000" "$(GDB) --eval-command='target remote :2331' $(OUT)"
 	$(GDB) --eval-command='target remote :2331' $(OUT)
 else
 	echo "Unsupported programmer"
 	exit 1
 endif
 
-# start gdb server and gdb for the M0 core
+# debug the M0+ core (gdb server must already be started)
 debug_m0: $(OUT)
 ifeq ($(PROGRAMMER),lpc-link2)
 	echo "TODO: lpc-link2 M0 debug"
@@ -162,7 +173,7 @@ else
 	exit 1
 endif
 
-.PHONY: all checkdirs clean debug debug_m0 flash
+.PHONY: all checkdirs clean debug debug_m0 debugserver debugserver_m0 flash
 
 $(foreach bdir,$(M0_BUILD_DIRS),$(eval $(call make-goal-m0,$(bdir))))
 $(foreach bdir,$(BUILD_DIRS),$(eval $(call make-goal,$(bdir))))
