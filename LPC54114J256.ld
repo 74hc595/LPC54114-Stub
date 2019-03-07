@@ -32,7 +32,7 @@ SECTIONS
   } > FLASH
   __etext = .;
 
-/* Contiguous banks SRAM0, SRAM1, SRAM2 */
+  /* Contiguous banks SRAM0, SRAM1, SRAM2 */
   .data : AT(__etext) {
     . = ALIGN(4);
     __data_start__ = .;
@@ -56,7 +56,24 @@ SECTIONS
     __bss_end__ = .;
   } > RAM
 
-/* SRAMX is discontiguous with the rest of SRAM */
+  /* For buffers that must be placed in SRAM bank 1. */
+  /* Allow .data/.noinit/.bss to overflow into SRAM1, but error if there */
+  /* is not enough room for the symbols that must go into SRAM1. */
+  .sram1 (NOLOAD) : {
+    . = MAX(., ABSOLUTE(0x20010000));
+    *(.sram1*)
+  } > RAM
+  ASSERT(!(SIZEOF(.sram1) && ((ADDR(.sram1)+SIZEOF(.sram1)) > ABSOLUTE(0x20020000))), "Not enough room in SRAM1")
+
+  /* For buffers that must be placed in SRAM bank 2. */
+  /* Allow .data/.noinit/.bss to completely overflow SRAM1 and into SRAM2, */
+  /* but error if there is not enough room for the symbols that must go into SRAM2. */
+  .sram2 (NOLOAD) : {
+    . = MAX(., ABSOLUTE(0x20020000));
+    *(.sram2*)
+  } > RAM
+
+  /* SRAMX is discontiguous with the rest of SRAM */
   .xdata : AT(LOADADDR(.data)+SIZEOF(.data)) {
     . = ALIGN(4);
     __xdata_start__ = .;
