@@ -59,8 +59,7 @@ SECTIONS
   /* For buffers that must be placed in SRAM bank 1. */
   /* Allow .data/.noinit/.bss to overflow into SRAM1, but error if there */
   /* is not enough room for the symbols that must go into SRAM1. */
-  .sram1 (NOLOAD) : {
-    . = MAX(., ABSOLUTE(0x20010000));
+  .sram1 MAX(., ABSOLUTE(0x20010000)) (NOLOAD) : {
     *(.sram1*)
   } > RAM
   ASSERT(!(SIZEOF(.sram1) && ((ADDR(.sram1)+SIZEOF(.sram1)) > ABSOLUTE(0x20020000))), "Not enough room in SRAM1")
@@ -68,8 +67,7 @@ SECTIONS
   /* For buffers that must be placed in SRAM bank 2. */
   /* Allow .data/.noinit/.bss to completely overflow SRAM1 and into SRAM2, */
   /* but error if there is not enough room for the symbols that must go into SRAM2. */
-  .sram2 (NOLOAD) : {
-    . = MAX(., ABSOLUTE(0x20020000));
+  .sram2 MAX(., ABSOLUTE(0x20020000)) (NOLOAD) : {
     *(.sram2*)
   } > RAM
 

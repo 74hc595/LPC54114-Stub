@@ -70,7 +70,7 @@ $(M0_BUILD_DIRS):
 
 $(OUT): $(OBJ) $(M0_OBJ)
 	$(CC) $(M4_CFLAGS) $(LDFLAGS) -o $(OUT) $(OBJ) $(M0_OBJ)
-	$(OBJDUMP) -z -D $(OUT) > $(LST)
+	$(OBJDUMP) -D $(OUT) > $(LST)
 
 define make-goal
 $1/%.o: %.S

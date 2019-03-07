@@ -22,10 +22,6 @@
 #define LED2_PORT  1U
 #define LED2_PIN   9U
 
-/* CLKOUT is PIO0_21 */
-#define CLKOUT_PORT 0U
-#define CLKOUT_PIN  21U
-
 #define CM0_STACK_SIZE  32
 static unsigned char cm0_stack[CM0_STACK_SIZE];
 
@@ -46,13 +42,6 @@ int main(void)
     IOCON_PIO_FUNC(0) | /* configured as GPIO */
     IOCON_PIO_MODE(2) | /* pullup enabled */
     IOCON_PIO_DIGIMODE_MASK; /* digital mode */
-
-  /* configure CLKOUT pin */
-  IOCON->PIO[CLKOUT_PORT][CLKOUT_PIN] =
-    IOCON_PIO_FUNC(1) | /* configured as CLKOUT */
-    IOCON_PIO_DIGIMODE_MASK; /* digital mode */
-  SYSCON->CLKOUTSELA = 0; /* main clock */
-  SYSCON->CLKOUTDIV = 0; /* un-halt the divider */
 
   /* set GPIO pins as outputs, initially off */
   GPIO->DIRSET[LED1_PORT] = (1U << LED1_PIN);
