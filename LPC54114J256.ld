@@ -1,8 +1,8 @@
 MEMORY
 {
   FLASH  (rx) : ORIGIN = 0x00000000, LENGTH = 256K
-  RAMX  (rwx) : ORIGIN = 0x04000000, LENGTH = 32K
-  RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 160K
+  SRAMX (rwx) : ORIGIN = 0x04000000, LENGTH = 32K
+  SRAM  (rwx) : ORIGIN = 0x20000000, LENGTH = 160K
 }
 
 SECTIONS
@@ -41,7 +41,6 @@ SECTIONS
     . = ALIGN(4);
     __data_end__ = .;
   } > RAM
-  __edata = LOADADDR(.data)+SIZEOF(.data);
 
   .noinit (NOLOAD) : {
     *(.noinit*)
@@ -54,14 +53,14 @@ SECTIONS
     *(COMMON)
     . = ALIGN(4);
     __bss_end__ = .;
-  } > RAM
+  } > SRAM
 
   /* For buffers that must be placed in SRAM bank 1. */
   /* Allow .data/.noinit/.bss to overflow into SRAM1, but error if there */
   /* is not enough room for the symbols that must go into SRAM1. */
   .sram1 MAX(., ABSOLUTE(0x20010000)) (NOLOAD) : {
     *(.sram1*)
-  } > RAM
+  } > SRAM
   ASSERT(!(SIZEOF(.sram1) && ((ADDR(.sram1)+SIZEOF(.sram1)) > ABSOLUTE(0x20020000))), "Not enough room in SRAM1")
 
   /* For buffers that must be placed in SRAM bank 2. */
@@ -69,29 +68,12 @@ SECTIONS
   /* but error if there is not enough room for the symbols that must go into SRAM2. */
   .sram2 MAX(., ABSOLUTE(0x20020000)) (NOLOAD) : {
     *(.sram2*)
-  } > RAM
+  } > SRAM
 
   /* SRAMX is discontiguous with the rest of SRAM */
-  .xdata : AT(LOADADDR(.data)+SIZEOF(.data)) {
-    . = ALIGN(4);
-    __xdata_start__ = .;
-    *(.xramfunc*)
-    *(.xdata*)
-    . = ALIGN(4);
-    __xdata_end__ = .;
-  } > RAMX
+  .sramx (NOLOAD) : {
+    *(.sramx*)
+  } > SRAMX
 
-  .xnoinit (NOLOAD) : {
-    *(.xnoinit*)
-  } > RAMX
-
-  .xbss : {
-    . = ALIGN(4);
-    __xbss_start__ = .;
-    *(.xbss*)
-    . = ALIGN(4);
-    __xbss_end__ = .;
-  } > RAMX
-
-  __estack = DEFINED(M4_STACK_IN_SRAMX) ? ORIGIN(RAMX)+LENGTH(RAMX) : ORIGIN(RAM)+LENGTH(RAM);
+  __estack = DEFINED(M4_STACK_IN_SRAMX) ? ORIGIN(SRAMX)+LENGTH(SRAMX) : ORIGIN(SRAM)+LENGTH(SRAM);
 }

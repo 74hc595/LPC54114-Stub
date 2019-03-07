@@ -97,18 +97,29 @@ m0_sleep:
 m4_boot:
     .arch armv7-m
     adr     r7, m4_boot_constants
+    ldmia   r7, {r0, r1, r2, r3, r4, r5, r6, r7}
     @ enable clocks for all SRAM
-    ldmia   r7!, {r0, r1}
     str     r1, [r0]
-    @ copy data from ROM to SRAM and initialize bss
-    ldmia   r7!, {r0, r1, r2, r3, r4, r5}
-    blx     r5
-    @ copy data from ROM to SRAMX and initialize xbss
-    ldmia   r7!, {r0, r1, r2, r3, r4}
-    blx     r5
+    @ copy data
+    @ r2: data source address
+    @ r3: data destination start address
+    @ r4: data destination end address
+1:  cmp     r3, r4
+    ittt    lt
+    ldrlt   r0, [r2], #4
+    strlt   r0, [r3], #4
+    blt     1b
+    @ clear bss
+    @ r5: bss start address
+    @ r6: bss end address
+    movs    r0, 0
+2:  cmp     r5, r6
+    itt     lt
+    strlt   r0, [r5], #4
+    blt     2b
     @ start C code
-    ldr     r0, =__libc_init_array
-    blx     r0
+    @ r7: address of __libc_init_array
+    blx     r7
     ldr     r0, =main
     bx      r0
     .pool
@@ -120,31 +131,7 @@ m4_boot_constants:
     .long   __data_end__
     .long   __bss_start__
     .long   __bss_end__
-    .long   copy_data_and_clear_bss
-    .long   __edata
-    .long   __xdata_start__
-    .long   __xdata_end__
-    .long   __xbss_start__
-    .long   __xbss_end__
-
-    .thumb_func
-@ r0: data source address
-@ r1: data destination start address
-@ r2: data destination end address
-@ r3: bss start address
-@ r4: bss end address
-copy_data_and_clear_bss:
-1:  cmp     r1, r2
-    ittt    lt
-    ldrlt   r6, [r0], #4
-    strlt   r6, [r1], #4
-    blt     1b
-    movs    r6, 0
-2:  cmp     r3, r4
-    itt     lt
-    strlt   r6, [r3], #4
-    blt     2b
-    bx      lr
+    .long   __libc_init_array
 
 .pool
 .size Reset_Handler, . - Reset_Handler
