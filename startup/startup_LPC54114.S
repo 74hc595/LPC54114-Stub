@@ -97,31 +97,47 @@ m0_sleep:
 m4_boot:
     .arch armv7-m
     adr     r7, m4_boot_constants
-    ldmia   r7, {r0, r1, r2, r3, r4, r5, r6, r7}
+    ldmia   r7!, {r0, r1, r2, r3, r4, r5, r6}
     @ enable clocks for all SRAM
     str     r1, [r0]
-    @ copy data
-    @ r2: data source address
-    @ r3: data destination start address
-    @ r4: data destination end address
-1:  cmp     r3, r4
-    ittt    lt
-    ldrlt   r0, [r2], #4
-    strlt   r0, [r3], #4
-    blt     1b
-    @ clear bss
-    @ r5: bss start address
-    @ r6: bss end address
-    movs    r0, 0
-2:  cmp     r5, r6
-    itt     lt
-    strlt   r0, [r5], #4
-    blt     2b
+    @ initialize SRAM0
+    ldr     r0, =copy_data_and_clear_bss
+    blx     r0
+    @ initialize SRAM1
+    ldmia   r7!, {r2, r3, r4, r5, r6}
+    blx     r0
+    @ initialize SRAM2
+    ldmia   r7!, {r2, r3, r4, r5, r6}
+    blx     r0
+    @ initialize SRAMX
+    ldmia   r7, {r2, r3, r4, r5, r6, r7}
+    blx     r0
     @ start C code
     @ r7: address of __libc_init_array
     blx     r7
     ldr     r0, =main
     bx      r0
+
+.thumb_func
+copy_data_and_clear_bss:
+    @ r2: data source address
+    @ r3: data destination start address
+    @ r4: data destination end address
+1:  cmp     r3, r4
+    ittt    lt
+    ldrlt   r1, [r2], #4
+    strlt   r1, [r3], #4
+    blt     1b
+    @ clear bss
+    @ r5: bss start address
+    @ r6: bss end address
+    movs    r1, 0
+2:  cmp     r5, r6
+    itt     lt
+    strlt   r1, [r5], #4
+    blt     2b
+    bx      lr
+
     .pool
 m4_boot_constants:
     .long   0x40000220  @ SYSCON->AHBCLKCTRL0SET
@@ -131,8 +147,22 @@ m4_boot_constants:
     .long   __data_end__
     .long   __bss_start__
     .long   __bss_end__
+    .long   __edata
+    .long   __sram1_data_start__
+    .long   __sram1_data_end__
+    .long   __sram1_bss_start__
+    .long   __sram1_bss_end__
+    .long   __edata1
+    .long   __sram2_data_start__
+    .long   __sram2_data_end__
+    .long   __sram2_bss_start__
+    .long   __sram2_bss_end__
+    .long   __edata2
+    .long   __sramx_data_start__
+    .long   __sramx_data_end__
+    .long   __sramx_bss_start__
+    .long   __sramx_bss_end__
     .long   __libc_init_array
-
 .pool
 .size Reset_Handler, . - Reset_Handler
 

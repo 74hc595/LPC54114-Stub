@@ -3,7 +3,7 @@
 #define LED2_PORT  1U
 #define LED2_PIN   9U
 
-void _start(void)
+void core1(void)
 {
   /* rapidly toggle GPIO */
   while (1) {

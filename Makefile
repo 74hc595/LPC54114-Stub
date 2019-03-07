@@ -10,9 +10,8 @@ LINKER_SCRIPT = LPC54114J256.ld
 CPU = LPC54114J256
 DEBUG ?= 1
 
-# If 1, the M4 core's stack will be placed at the end of the SRAMX bank.
-# Otherwise, it will be placed at the end of the contiguous SRAM0-2 region.
-M4_STACK_IN_SRAMX ?= 1
+# Location of the M4 core's stack. (SRAM0, SRAM1, SRAM2, or SRAMX)
+M4_STACK_BANK = SRAMX
 
 SRC_DIRS = source startup
 M0_SRC_DIRS = m0
@@ -47,11 +46,7 @@ MAP = $(PROJECT_NAME).map
 LST = $(PROJECT_NAME).lst
 
 CFLAGS = -D__STARTUP_CLEAR_BSS -Wall -fno-common -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -mthumb -mapcs -std=gnu99 -MMD -MP
-LDFLAGS = -T $(LINKER_SCRIPT) -Xlinker -gc-sections -Xlinker -static -Xlinker -z -Xlinker muldefs -Wl,-Map,"$(MAP)" --specs=nano.specs -specs=nosys.specs
-
-ifeq ($(M4_STACK_IN_SRAMX),1)
-	LDFLAGS += -Wl,--defsym=M4_STACK_IN_SRAMX=1
-endif
+LDFLAGS = -Xlinker -print-memory-usage -T $(LINKER_SCRIPT) -Xlinker -gc-sections -Xlinker -static -Xlinker -z -Xlinker muldefs -Wl,-Map,"$(MAP)" --specs=nano.specs -specs=nosys.specs -Wl,--defsym=M4_STACK_IN_$(M4_STACK_BANK)=1
 
 ifeq ($(DEBUG),1)
 	CFLAGS += -g -O0 -DDEBUG
@@ -96,16 +91,21 @@ $1/%.m0: %.S
 $1/%.m0: %.c
 	$(CC) $(M0_CFLAGS) -Wl,-r -c $$< -o $$@
 
-# M0+ and M4 object files can't be linked together, so the M0+ objects need
-# to get converted to binary blobs, and the binary blobs need to be included
-# in relocatable object files that can be linked with the M4 object files.
-$1/%.bin: $1/%.m0
-	$(OBJCOPY) -O binary $$< $$@
+# The .ARM.attributes section needs to be deleted from M0+ object files,
+# or ld will fail because it won't link together objects with different ABIs.
+$1/%.o: $1/%.m0
+	$(OBJCOPY) --remove-section=.ARM.attributes $$< $$@
 
-# ld puts the result in the .data section
-$1/%.o: $1/%.bin
-	$(LD) -r -b binary $$< -o $$@
-	$(OBJCOPY) --rename-section .data=.text $$@ $$@
+# # M0+ and M4 object files can't be linked together, so the M0+ objects need
+# # to get converted to binary blobs, and the binary blobs need to be included
+# # in relocatable object files that can be linked with the M4 object files.
+# $1/%.bin: $1/%.m0
+# 	$(OBJCOPY) -O binary $$< $$@
+
+# # ld puts the result in the .data section
+# $1/%.o: $1/%.bin
+# 	$(LD) -r -b binary $$< -o $$@
+# 	$(OBJCOPY) --rename-section .data=.text $$@ $$@
 endef
 
 
