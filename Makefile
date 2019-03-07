@@ -1,9 +1,9 @@
 # Stub Makefile for LPC54114, Cortex-M4 and Cortex-M0+ dual-core
 
-#PROGRAMMER ?= lpc-link2
+# PROGRAMMER ?= lpc-link2
 PROGRAMMER ?= j-link
 
-LPCXPRESSO_DIR = /Applications/lpcxpresso_8.2.2_650/lpcxpresso
+LPCXPRESSO_DIR ?= /Applications/lpcxpresso_8.2.2_650/lpcxpresso
 
 PROJECT_NAME = lpc54114-stub
 LINKER_SCRIPT = LPC54114J256.ld
@@ -148,7 +148,7 @@ ifeq ($(PROGRAMMER),j-link)
 	JLinkGDBServer -device $(CPU)_m0 -if SWD -speed 4000 -port 2334
 endif
 
-# debug the M4 core (gdb server must already be started)
+# debug the M4 core (for j-link, JLinkGDBServer must already be started)
 debug: $(OUT)
 ifeq ($(PROGRAMMER),lpc-link2)
 	$(LPCXPRESSO_DIR)/bin/boot_link2 || true
@@ -160,13 +160,12 @@ else
 	exit 1
 endif
 
-# debug the M0+ core (gdb server must already be started)
+# debug the M0+ core (for j-link, JLinkGDBServer must already be started)
 debug_m0: $(OUT)
 ifeq ($(PROGRAMMER),lpc-link2)
-	echo "TODO: lpc-link2 M0 debug"
-	exit 1
+	$(LPCXPRESSO_DIR)/bin/boot_link2 || true
+	$(GDB) --eval-command="target extended-remote | $(LPCXPRESSO_DIR)/bin/crt_emu_cm_redlink -g -mi -2 -p $(CPU) --coreindex=1:0" $(OUT)
 else ifeq ($(PROGRAMMER),j-link)
-	# ./jlink-gdb.sh "JLinkGDBServer -device $(CPU)_M0 -if SWD -speed 4000 -port 2334" "$(GDB) --eval-command='target remote :2334' $(OUT)"
 	$(GDB) --eval-command='target remote :2334' $(OUT)
 else
 	echo "Unsupported programmer"
