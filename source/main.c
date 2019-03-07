@@ -9,10 +9,9 @@
  * of the RGB LED, and the Cortex-M0+ controls the blue channel.
  * When running properly, the RGB LED should appear cyan to the naked eye,
  * and inspecting pins 8 and 5 on connector J9 with a scope should show two
- * square waves.
- *
- * This example runs the M0+ code from flash, which has subpar performance.
- * For better performance, copy the M0+ code to RAM.
+ * square waves. (There will be some jitter due to bus contention, because both
+ * cores are executing code from flash. For better performance, copy the M0+
+ * code to RAM.)
  */
 #include "LPC54114_cm4.h"
 

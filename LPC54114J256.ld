@@ -93,5 +93,5 @@ SECTIONS
     __xbss_end__ = .;
   } > RAMX
 
-  __estack = ORIGIN(RAM) + LENGTH(RAM);
+  __estack = DEFINED(M4_STACK_IN_SRAMX) ? ORIGIN(RAMX)+LENGTH(RAMX) : ORIGIN(RAM)+LENGTH(RAM);
 }

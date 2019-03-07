@@ -11,6 +11,10 @@ CPU = LPC54114J256
 CPU_MODEL = $(CPU)BD64
 DEBUG ?= 1
 
+# If 1, the M4 core's stack will be placed at the end of the SRAMX bank.
+# Otherwise, it will be placed at the end of the contiguous SRAM0-2 region.
+M4_STACK_IN_SRAMX ?= 1
+
 SRC_DIRS = source startup
 M0_SRC_DIRS = m0
 BUILD_DIRS = $(addprefix build/,$(SRC_DIRS))
@@ -45,6 +49,10 @@ LST = $(PROJECT_NAME).lst
 
 CFLAGS = -D__STARTUP_CLEAR_BSS -Wall -fno-common -ffunction-sections -fdata-sections -ffreestanding -fno-builtin -mthumb -mapcs -std=gnu99 -MMD -MP
 LDFLAGS = -T $(LINKER_SCRIPT) -Xlinker -gc-sections -Xlinker -static -Xlinker -z -Xlinker muldefs -Wl,-Map,"$(MAP)" --specs=nano.specs -specs=nosys.specs
+
+ifeq ($(M4_STACK_IN_SRAMX),1)
+	LDFLAGS += -Wl,--defsym=M4_STACK_IN_SRAMX=1
+endif
 
 ifeq ($(DEBUG),1)
 	CFLAGS += -g -O0 -DDEBUG
