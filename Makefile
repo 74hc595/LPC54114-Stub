@@ -63,8 +63,9 @@ endif
 
 CFLAGS += $(addprefix -I,$(INCLUDE_DIRS))
 
-M4_CFLAGS = $(CFLAGS) -DCPU_$(CPU_MODEL)_cm4 -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16
-M0_CFLAGS = $(CFLAGS) -DCPU_$(CPU_MODEL)_cm0plus -mcpu=cortex-m0plus -nostartfiles
+M4_CFLAGS = $(CFLAGS) -DCPU_$(CPU)_cm4 -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16
+M0_CFLAGS = $(CFLAGS) -DCPU_$(CPU)_cm0plus -mcpu=cortex-m0plus -nostartfiles -mfloat-abi=soft
+
 
 all: checkdirs $(OUT) $(HEX) $(SIZ)
 
@@ -88,20 +89,26 @@ $1/%.o: %.c
 	$(CC) $(M4_CFLAGS) -c $$< -o $$@
 endef
 
+
 define make-goal-m0
-$1/%.o: %.S
-	$(CC) $(M0_CFLAGS) -x assembler-with-cpp -c $$< -o $$@_tmp
-	$(OBJCOPY) -O binary $$@_tmp $$@_bin
-	$(LD) -r -b binary $$@_bin -o $$@
-	$(OBJCOPY) --rename-section .data=.text $$@ $$@
+$1/%.m0: %.S
+	$(CC) $(M0_CFLAGS) -x assembler-with-cpp -c $$< -o $$@
 
-$1/%.o: %.c
-	$(CC) $(M0_CFLAGS) -c $$< -o $$@_tmp
-	$(OBJCOPY) -O binary $$@_tmp $$@_bin
-	$(LD) -r -b binary $$@_bin -o $$@
-	$(OBJCOPY) --rename-section .data=.text $$@ $$@
+$1/%.m0: %.c
+	$(CC) $(M0_CFLAGS) -Wl,-r -c $$< -o $$@
 
+# M0+ and M4 object files can't be linked together, so the M0+ objects need
+# to get converted to binary blobs, and the binary blobs need to be included
+# in relocatable object files that can be linked with the M4 object files.
+$1/%.bin: $1/%.m0
+	$(OBJCOPY) -O binary $$< $$@
+
+# ld puts the result in the .data section
+$1/%.o: $1/%.bin
+	$(LD) -r -b binary $$< -o $$@
+	$(OBJCOPY) --rename-section .data=.text,alloc,readonly,code $$@ $$@
 endef
+
 
 $(HEX): $(OUT)
 	$(OBJCOPY) -O ihex $(OUT) $(HEX)
@@ -122,7 +129,7 @@ else ifeq ($(PROGRAMMER),j-link)
 	echo "loadfile $(HEX)" >> jlinkscript
 	echo "r" >> jlinkscript
 	echo "q" >> jlinkscript
-	JLinkExe -device $(CPU_MODEL) -if SWD -speed 4000 -autoconnect 1 -commanderscript jlinkscript
+	JLinkExe -device $(CPU) -if SWD -speed 4000 -autoconnect 1 -commanderscript jlinkscript
 	rm jlinkscript
 else
 	echo "Unsupported programmer"
