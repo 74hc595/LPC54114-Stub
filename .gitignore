@@ -12,3 +12,4 @@
 *.lst
 build/
 .DS_Store
+jlinkscript
