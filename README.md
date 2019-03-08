@@ -297,5 +297,5 @@ License
 -------
 
 The header files in the `vendor-include/` directory are copyright ARM Limited
-and NXP and released under-open source licenses. The remainder of the code in this
+and NXP and released under open-source licenses. The remainder of the code in this
 repository is released to the public domain.
