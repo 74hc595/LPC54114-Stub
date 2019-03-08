@@ -9,14 +9,15 @@ code (just header files) and does not require a vendor IDE. It can be built from
 the command line using Make and you're free to use whatever editor you like.
 
 
-Runtime behavior
-----------------
+What this code does
+-------------------
 
 The M4 core rapidly toggles GPIO pin `PIO1_10`, and the M0+
 simultaneously rapidly toggles pin `PIO1_9`. On the [LPCXpresso54114 evaluation
 board](https://www.nxp.com/support/developer-resources/evaluation-and-development-boards/lpcxpresso-boards/lpcxpresso54114-board:OM13089), these pins are connected to the green and blue channels (respectively)
-of an RGB LED. When working properly, the RGB LED should appear cyan, and square
-waves should be visible by putting an oscilloscope on pins 8 and 5 of connector J9.
+of an RGB LED. When working properly, the RGB LED should appear cyan, and
+square(ish) waves should be visible by putting an oscilloscope on pins 8 and 5
+of connector J9.
 
 Unlike the dual-core example programs provided by NXP, which take up tens of
 kilobytes of flash and require numerous libraries, this example project uses
@@ -115,7 +116,7 @@ void coprocessor_code(void) { /* ... */ }
 SYSCON->CPBOOT = (unsigned long)coprocessor_code;
 ```
 
-But you may need to explicitly set bit 0 if the coprocessor boot address points
+But you will need to explicitly set bit 0 if the coprocessor boot address points
 to an an array:
 
 ```
