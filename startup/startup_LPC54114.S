@@ -74,8 +74,8 @@ __vectors:
 @ booted by the master.
 @ Instead, the reset handler needs to read the CPU ID and run the appropriate
 @ startup code for the current core.
+.arch armv6-m
 Reset_Handler:
-    .arch armv6-m
     ldr     r0, =0xE000ED00 @ read CPUID register in System Control Block
     ldr     r0, [r0]
     ldr     r1, =0x410cc601 @ CPUID for Cortex-M0+
@@ -86,16 +86,16 @@ m0_boot:
     ldr     r0, =0x40000804 @ coprocessor boot register
     ldr     r1, [r0]
     cmp     r1, #0          @ sleep if boot address is not set
-    beq     m0_sleep
+    beq     cpu_sleep
     ldr     r0, [r0, #4]    @ coprocessor stack pointer
     mov     sp, r0
-    bx      r1              @ jump to coprocessor code
-m0_sleep:
+    blx     r1              @ jump to coprocessor code
+cpu_sleep:
     wfi
-    b       m0_sleep
+    b       cpu_sleep
 
+.arch armv7-m
 m4_boot:
-    .arch armv7-m
     adr     r7, m4_boot_constants
     ldmia   r7!, {r0, r1, r2, r3, r4, r5, r6}
     @ enable clocks for all SRAM
@@ -116,7 +116,9 @@ m4_boot:
     @ r7: address of __libc_init_array
     blx     r7
     ldr     r0, =main
-    bx      r0
+    blx     r0
+    @ loop endlessly if main returns
+    b       cpu_sleep
 
 .thumb_func
 copy_data_and_clear_bss:

@@ -1,7 +1,7 @@
 LPC54114 Dual-Core Example Project for GCC
 ==========================================
 
-NXP's LPC54114 is a dual-core ARM microcontroller. In addition to the primary
+NXP's [LPC54114](https://www.nxp.com/products/processors-and-microcontrollers/arm-based-processors-and-mcus/lpc-cortex-m-mcus/lpc54000-cortex-m4-/low-power-microcontrollers-mcus-based-on-arm-cortex-m4-cores-with-optional-cortex-m0-plus-co-processor:LPC541XX) is a dual-core ARM microcontroller. In addition to the primary
 Cortex-M4F core, it also includes a Cortex-M0+ coprocessor core.
 
 This is a minimal example project that does not require any vendor executable
@@ -13,10 +13,10 @@ Runtime behavior
 ----------------
 
 The M4 core rapidly toggles GPIO pin `PIO1_10`, and the M0+
-simultaneously rapidly toggles pin `PIO1_9`. On the LPCXpresso54114 evaluation
-board, these pins are connected to the green and blue channels (respectively)
+simultaneously rapidly toggles pin `PIO1_9`. On the [LPCXpresso54114 evaluation
+board](https://www.nxp.com/support/developer-resources/evaluation-and-development-boards/lpcxpresso-boards/lpcxpresso54114-board:OM13089), these pins are connected to the green and blue channels (respectively)
 of an RGB LED. When working properly, the RGB LED should appear cyan, and square
-waves should be visible by putting an oscillope on pins 8 and 5 of connector J9.
+waves should be visible by putting an oscilloscope on pins 8 and 5 of connector J9.
 
 Unlike the dual-core example programs provided by NXP, which take up tens of
 kilobytes of flash and require numerous libraries, this example project uses
@@ -28,18 +28,17 @@ Caveats
 
 I'd like to reiterate that this is a **minimal** project:
 
-- The default clock settings (12 MHz internal oscillator) are used. The PLL is
+- The default clock (12 MHz internal oscillator) and power consumption settings are used. The PLL is
   not configured.
 - The only peripherals configured are SRAM, IOCON, and GPIO.
-- SysTick timer is not configured.
-- No interrupts are configured.
+- No interrupts (not even SysTick) are configured.
 
 
 Included is a Makefile for GCC. It includes rules for flashing and debugging
 using either an LPC-Link2 probe (included onboard the LPCXpresso54114) or a
-J-Link.
+[J-Link](https://www.segger.com/products/debug-probes/j-link/). (If you don't have a J-Link, you should [buy one for only US$20](https://www.adafruit.com/product/3571) because they're awesome!)
 
-NXP's MCUXpresso/LPCXpresso software does **not** have to be installed if using
+NXP's [MCUXpresso/LPCXpresso](https://www.nxp.com/support/developer-resources/software-development-tools/mcuxpresso-software-and-tools/mcuxpresso-integrated-development-environment-ide:MCUXpresso-IDE) software does **not** have to be installed if using
 a J-Link. It _is_ required if using LPC-Link2, as it contains the necessary
 command-line utilities for communicating with the debug probe.
 
@@ -79,6 +78,82 @@ Each core needs its own instance of GDB and the approproate GDB server.
    (Not necessary for LPC-Link2.)
 
 2. Run `make debug_m0` to start GDB.
+
+
+Directory structure
+-------------------
+
+- `vendor-include/` contains CMSIS and NXP header files describing the LPC54114 hardware.
+- `startup/` contains the interrupt vector table and code that's run on startup.
+- `source/` contains application code for the Cortex-M4 core. All source files in
+  this directory are compiled using the appropriate CFLAGS for the M4.
+- `m0/` contains application code for the Cortex-M0+ core. All source files in
+  this directory are compiled using the appropriate CFLAGS for the M0+.
+- `build/` is where intermediate object files are written to. It may be safely deleted
+  at any time.
+
+The `SRC_DIRS` and `M0_SRC_DIRS` variables in the Makefile may be edited to
+indicate which directories contain M4 and M0+ code, respectively.
+
+
+The M0+ is faulting at boot! Why???
+-----------------------------------
+
+### LSB of `SYSCON->CPBOOT` not set
+
+Is the least significant bit of `SYSCON->CPBOOT` set? When jumping to an address,
+the ARM uses the least significant bit of the address to determine whether to
+execute the code using the full ARM instruction set (lsb=0) or the [Thumb instruction set](https://en.wikipedia.org/wiki/ARM_architecture#Thumb). (lsb=1)
+Cortex-M cores _only_ support the Thumb instruction set, which means that the
+least significant of any destination jump address _must be 1_.
+
+GCC knows to do this for function pointers. This works just fine:
+
+```
+void coprocessor_code(void) { /* ... */ }
+/* ... */
+SYSCON->CPBOOT = (unsigned long)coprocessor_code;
+```
+
+But you may need to explicitly set bit 0 if the coprocessor boot address points
+to an an array:
+
+```
+char coprocessor_code_buf[]; /* might contain dynamically loaded code */
+/* ... */
+SYSCON->CPBOOT = (unsigned long)(coprocessor_code_buf)|1;
+```
+
+
+### Attempting to access disabled SRAM
+
+The M0+ may also fault if it attempts to access an SRAM bank whose clock is
+disabled. Make sure the `SRAM1` and/or `SRAM2` bits are set in the
+`SYSCON->AHBCLKCTRL[0]` register.
+
+
+### Incorrect coprocessor stack pointer
+
+Also, remember that stacks grow _downward_. If you've designated a RAM buffer
+to be used as the M0+ stack, `SYSCON->CPSTACK` must point to the address
+_just past the end of the buffer_:
+
+```
+unsigned long m0_stack[16];
+
+/* this will do weird stuff and probably crash! */
+SYSCON->CPSTACK = (unsigned long)m0_stack;
+
+/* this is correct */
+SYSCON->CPSTACK = (unsigned long)(m0_stack+sizeof(m0_stack));
+```
+
+
+### Attempting to execute Cortex-M4 code
+
+Make sure the code is coming from a file in the `m0/` directory! Any source files
+outside the `m0/` directory are compiled with the Cortex-M4's instruction set,
+and the M0+ will HardFault if it tries to execute unsupported instructions.
 
 
 Controlling placement of data and code
@@ -134,6 +209,7 @@ Section name   | Destination range       | Contents     | Startup behavior
 ```
 
 Examples:
+
 ```
 /* place a 16KB buffer in SRAM2 */
 __attribute__((section(".sram2.bss"))) char buf[16384];
@@ -153,10 +229,8 @@ SRAM2 if necessary. This allows creation of contiguous arrays larger than 64KB.
 The linker will assert an error if there is insufficient room in SRAM1 and/or
 SRAM2 to accommodate the data in `.sram1*` and `.sram2*` sections.
 
-The M4 core's stack may be placed in SRAM2 or SRAMX. If `M4_STACK_IN_SRAMX` is
-set to `1` in the Makefile, the M4's stack is placed at the end of SRAMX. (The
-M0+'s stack can be anywhere; it's up to the M4 master to specify the location
-of the coprocessor stack.)
+The M4 core's stack may be placed in any bank by specifying the `M4_STACK_BANK` variable in the Makefile. (By default, it's in SRAMX.) The M0+'s stack can be anywhere; it's up to the M4 master to specify the location
+of the stack when it boots the coprocessor.)
 
 If both cores are executing code from flash, or the same RAM bank, performance
 will be reduced due to bus contention. It's typically recommended that
