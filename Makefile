@@ -95,17 +95,6 @@ $1/%.m0: %.c
 # or ld will fail because it won't link together objects with different ABIs.
 $1/%.o: $1/%.m0
 	$(OBJCOPY) --remove-section=.ARM.attributes $$< $$@
-
-# # M0+ and M4 object files can't be linked together, so the M0+ objects need
-# # to get converted to binary blobs, and the binary blobs need to be included
-# # in relocatable object files that can be linked with the M4 object files.
-# $1/%.bin: $1/%.m0
-# 	$(OBJCOPY) -O binary $$< $$@
-
-# # ld puts the result in the .data section
-# $1/%.o: $1/%.bin
-# 	$(LD) -r -b binary $$< -o $$@
-# 	$(OBJCOPY) --rename-section .data=.text $$@ $$@
 endef
 
 
