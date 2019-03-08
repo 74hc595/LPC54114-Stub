@@ -206,7 +206,7 @@ Section name   | Destination range       | Contents     | Startup behavior
 .sramx.bss     | [0x04000000,0x04007FFF] | Data         | Zeroed
 .sramx.noinit  | [0x04000000,0x04007FFF] | Data         | None
                |                         |              |
-.text          | [0x00000000,0x0403FFFF] | Code and read-only data (flash ROM)
+.text          | [0x00000000,0x0003FFFF] | Code and read-only data (flash ROM)
 ```
 
 Examples:
