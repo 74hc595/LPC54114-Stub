@@ -218,7 +218,7 @@ __attribute__((section(".sram2.bss"))) char buf[16384];
 __attribute__((section(".sram1.data"))) int table[] = {0,1,2,3,4,5,6,7};
 
 /* define a function that runs from SRAMX */
-__attribute__((section(".sramx.ramfunc"))) void fastfunction(void) { /* ... */ }
+__attribute__((noinline,section(".sramx.ramfunc"))) void fastfunction(void) { /* ... */ }
 
 /* allocate an 100KB buffer that starts in SRAM0 but overflows into SRAM1 */
 int big_buffer[102400];
@@ -239,8 +239,8 @@ each core should run code from a separate bank. Functions can be placed in RAM
 using one of the `*ramfunc` sections described above. Example:
 
 ```
-__attribute__((section(".sramx.ramfunc"))) void core0_code(void) { /* ... */ }
-__attribute__((section(".sram1.ramfunc"))) void core1_code(void) { /* ... */ }
+__attribute__((noinline,section(".sramx.ramfunc"))) void core0_code(void) { /* ... */ }
+__attribute__((noinline,section(".sram1.ramfunc"))) void core1_code(void) { /* ... */ }
 ```
 
 allows the functions `core0_code()` and `core1_code()` to be run simultaneously

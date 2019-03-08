@@ -9,9 +9,7 @@
  * of the RGB LED, and the Cortex-M0+ controls the blue channel.
  * When running properly, the RGB LED should appear cyan to the naked eye,
  * and inspecting pins 8 and 5 on connector J9 with a scope should show two
- * square waves. (There will be some jitter due to bus contention, because both
- * cores are executing code from flash. For better performance, copy the M0+
- * code to RAM.)
+ * square waves.
  */
 #include "LPC54114_cm4.h"
 
@@ -25,7 +23,8 @@
 static unsigned m0_stack[M0_STACK_SIZE_WORDS];
 extern void core1(void);
 
-int main(void)
+
+void main(void)
 {
   /* enable IOCON, and GPIO clocks */
   SYSCON->AHBCLKCTRLSET[0] = SYSCON_AHBCLKCTRL_IOCON_MASK | SYSCON_AHBCLKCTRL_GPIO0_MASK | SYSCON_AHBCLKCTRL_GPIO1_MASK;
@@ -47,7 +46,7 @@ int main(void)
 
   /* configure and start the M0 core */
   SYSCON->CPBOOT  = (unsigned long)(core1);
-  SYSCON->CPSTACK = (unsigned long)(m0_stack+sizeof(m0_stack));
+  SYSCON->CPSTACK = (unsigned long)(m0_stack)+sizeof(m0_stack);
   uint32_t cpuctrl = SYSCON->CPUCTRL;
   cpuctrl |= 0xC0C48000U;
   SYSCON->CPUCTRL = cpuctrl | SYSCON_CPUCTRL_CM0RSTEN_MASK | SYSCON_CPUCTRL_CM0CLKEN_MASK;
@@ -57,6 +56,4 @@ int main(void)
   while (1) {
     GPIO->NOT[LED1_PORT] = (1U << LED1_PIN);
   }
-
-  return 0;
 }

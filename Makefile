@@ -1,14 +1,14 @@
 # Stub Makefile for LPC54114, Cortex-M4 and Cortex-M0+ dual-core
 
-PROGRAMMER ?= lpc-link2
-# PROGRAMMER ?= j-link
+# PROGRAMMER ?= lpc-link2
+PROGRAMMER ?= j-link
 
 LPCXPRESSO_DIR ?= /Applications/lpcxpresso_8.2.2_650/lpcxpresso
 
 PROJECT_NAME = lpc54114-stub
 LINKER_SCRIPT = LPC54114J256.ld
 CPU = LPC54114J256
-DEBUG ?= 1
+DEBUG ?= 0
 
 # Location of the M4 core's stack. (SRAM0, SRAM1, SRAM2, or SRAMX)
 M4_STACK_BANK = SRAMX
