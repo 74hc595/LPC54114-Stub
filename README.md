@@ -291,3 +291,11 @@ void load_coprocessor_code(int program_number) {
 The linker script provides four dyncode sections: `.dyncode0` through `.dyncode3`.
 If more are required, or more symbolic names are needed, the linker script must
 be edited appropriately (or generated programmatically).
+
+
+License
+-------
+
+The header files in the `vendor-include/` directory are copyright ARM Limited
+and NXP and released under-open source licenses. The remainder the code in this
+repository is released to the public domain.
