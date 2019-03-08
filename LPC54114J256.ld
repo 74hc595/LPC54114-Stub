@@ -103,7 +103,7 @@ SECTIONS
   } > SRAM
 
   SRAM1_SIZE = SIZEOF(.sram1.data)+SIZEOF(.sram1.noinit)+SIZEOF(.sram1.bss);
-/*  ASSERT(!SRAM1_SIZE && (ADDR(.sram1.data)+SRAM1_SIZE > ABSOLUTE(0x20020000)), "Not enough room in SRAM1") */
+  ASSERT(!(SRAM1_SIZE && (ADDR(.sram1.data)+SRAM1_SIZE > ABSOLUTE(0x20020000))), "Not enough room in SRAM1")
 
   /* For buffers that must be placed in SRAM bank 2. */
   /* Allow .data/.noinit/.bss to completely overflow SRAM1 and into SRAM2, */
